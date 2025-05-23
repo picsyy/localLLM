@@ -26,7 +26,7 @@ A C++ project for advanced, real-time non-player character (NPC) dialogue powere
 
 1. **Clone the repository**
     ```bash
-    git clone https://github.com/yourusername/localLLM.git
+    git clone https://github.com/picsyy/localLLM.git
     cd localLLM
     ```
 
