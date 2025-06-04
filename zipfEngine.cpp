@@ -1,4 +1,4 @@
-// rolled.cpp - FIXED VERSION
+// zipfEngine.cpp - FIXED VERSION
 // Improved prompt engineering, better sampling parameters, and refined generation logic
 
 #include "llama.h"
@@ -459,4 +459,4 @@ int main(int argc, char** argv) {
 
     return 0;
 }
-// ---- End of improved rolled.cpp ----
+// ---- End of improved zipfEngine.cpp ----
