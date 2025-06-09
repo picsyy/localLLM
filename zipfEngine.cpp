@@ -440,12 +440,15 @@ int main(int argc, char** argv) {
         double tokens_per_sec = (elapsed_sec > 0.0) ? (assistant_tokens.size() / elapsed_sec) : 0.0;
         std::string gen_stats = "[Gen " + std::to_string(elapsed_ms) + " ms | "
                                 + std::to_string(tokens_per_sec) + " tok/s]\n";
+        std::string gen_stats = "[Gen " + std::to_string(elapsed_ms) + " ms | "
+                                + std::to_string(tokens_per_sec) + " tok/s]\n";
         log_and_print(gen_stats);
-        llama_perf_context_print(ctx);
+
+        // Update Zipf conversation state with generated tokens
+        zipf.record_generation(assistant_tokens);
 
         // Save conversation
         std::ofstream outfile("lastPrompt.txt", std::ios::app);
-        outfile << "You: " << user_input << "\n";
         outfile << npc.name << ": \"" + output + "\"\n";
         outfile << gen_stats;
         outfile.close();
