@@ -355,7 +355,8 @@ int main(int argc, char** argv) {
                 candidates[token_id] = { token_id, logits[token_id], 0.0f };
             }
             llama_token_data_array candidates_arr = { candidates.data(), (size_t)n_vocab, false };
-            llama_sample_top_k(ctx, &candidates_arr, TOP_CAND, TOP_CAND);
+            llama_sampler_apply(sampler_chain, &candidates_arr);
+            llama_token next_token = llama_sampler_sample(sampler_chain, ctx, -1);
 
             // Apply repetition penalty only on trimmed set
             for (size_t j = 0; j < candidates_arr.size; ++j) {
@@ -367,8 +368,7 @@ int main(int argc, char** argv) {
             }
 
             llama_sampler_apply(sampler_chain, &candidates_arr);
-            llama_token next_token = llama_sampler_sample(sampler_chain, ctx, -1);
-
+            
             if (next_token == llama_vocab_eos(vocab) || next_token == LLAMA_TOKEN_NULL) {
                 if (i >= min_tokens) break;
                 // If we haven't hit minimum tokens, try to continue
@@ -438,8 +438,6 @@ int main(int argc, char** argv) {
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         double elapsed_sec = elapsed_ms / 1000.0;
         double tokens_per_sec = (elapsed_sec > 0.0) ? (assistant_tokens.size() / elapsed_sec) : 0.0;
-        std::string gen_stats = "[Gen " + std::to_string(elapsed_ms) + " ms | "
-                                + std::to_string(tokens_per_sec) + " tok/s]\n";
         std::string gen_stats = "[Gen " + std::to_string(elapsed_ms) + " ms | "
                                 + std::to_string(tokens_per_sec) + " tok/s]\n";
         log_and_print(gen_stats);
