@@ -222,6 +222,20 @@ public:
         }
     }
 
+    // Record a generated sequence for adaptive state updates
+    void record_generation(const std::vector<llama_token>& tokens) {
+        // Track length history for complexity adjustments
+        conv_state.recent_lengths.push_back(tokens.size());
+        if (conv_state.recent_lengths.size() > 5) {
+            conv_state.recent_lengths.pop_front();
+        }
+
+        // Update token usage counts
+        for (llama_token t : tokens) {
+            conv_state.turn_frequencies[t] += 1.0f;
+        }
+    }
+
 private:
     std::string to_lower(const std::string& s) const {
         std::string result = s;
