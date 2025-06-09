@@ -1,4 +1,4 @@
-// zipf_accelerated.h - Redesigned for actual performance impact
+// zipf.h - Redesigned for actual performance impact
 #pragma once
 
 #include "llama-vocab.h"
