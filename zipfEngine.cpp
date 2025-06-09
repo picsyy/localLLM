@@ -440,9 +440,12 @@ int main(int argc, char** argv) {
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         double elapsed_sec = elapsed_ms / 1000.0;
         double tokens_per_sec = (elapsed_sec > 0.0) ? (assistant_tokens.size() / elapsed_sec) : 0.0;
-        std::string gen_stats = "[Gen " + std::to_string(elapsed_ms) + " ms | " 
+        std::string gen_stats = "[Gen " + std::to_string(elapsed_ms) + " ms | "
                                 + std::to_string(tokens_per_sec) + " tok/s]\n";
         log_and_print(gen_stats);
+
+        // Update Zipf conversation state with generated tokens
+        zipf.record_generation(assistant_tokens);
 
         // Save conversation
         std::ofstream outfile("lastPrompt.txt", std::ios::app);
