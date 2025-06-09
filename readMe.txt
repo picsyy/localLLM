@@ -50,6 +50,9 @@ A C++ project for advanced, real-time non-player character (NPC) dialogue powere
     g++ -O2 -std=c++17 rolled.cpp -o npc_dialogue -Iinclude -Llibs -lllama
     ./npc_dialogue
     ```
+    The engine now prints how many CPU threads are being used. If your system
+    reports no hardware concurrency, it defaults to at least four threads for
+    better performance.
 
 ---
 
