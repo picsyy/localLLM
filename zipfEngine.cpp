@@ -252,8 +252,11 @@ int main(int argc, char** argv) {
     }
 
     llama_context_params ctx_params = llama_context_default_params();
-    ctx_params.n_threads = std::thread::hardware_concurrency();
-    ctx_params.n_threads_batch = std::thread::hardware_concurrency();
+    unsigned int hw_threads = std::thread::hardware_concurrency();
+    if (hw_threads == 0) hw_threads = 4; // Fallback when detection fails
+    ctx_params.n_threads = std::max(4u, hw_threads);
+    ctx_params.n_threads_batch = ctx_params.n_threads;
+    std::cout << "Using " << ctx_params.n_threads << " threads\n";
     ctx_params.n_ctx = DEFAULT_N_CTX;
     ctx_params.flash_attn = false; // Disable flash attention for CPU build
 
