@@ -201,7 +201,8 @@ std::string truncate_at_forbidden_speaker(const std::string& output, const GameS
 // --- IMPROVED Sampling Constants ---
 #define DEFAULT_MAX_OUTPUT_TOKENS 300
 #define DEFAULT_MAX_TOKENS 4096
-#define DEFAULT_N_CTX 4096  // Increased context window
+#define DEFAULT_N_CTX 1024  // Keep context realistic
+#define TOP_CAND 120        // number of logits to keep per step
 #define TOP_K 40            // Reduced for better quality
 #define TOP_P 0.95f         // Increased for more variety
 #define TEMP 0.8f           // Reduced temperature for better coherence
@@ -254,7 +255,7 @@ int main(int argc, char** argv) {
     ctx_params.n_threads = std::thread::hardware_concurrency();
     ctx_params.n_threads_batch = std::thread::hardware_concurrency();
     ctx_params.n_ctx = DEFAULT_N_CTX;
-    ctx_params.flash_attn = true;  // Enable flash attention if available
+    ctx_params.flash_attn = false; // Disable flash attention for CPU build
 
     llama_context* ctx = llama_init_from_model(model, ctx_params);
     if (!ctx) {
@@ -308,13 +309,8 @@ int main(int argc, char** argv) {
         std::string mode_name = pick_mode_for_npc(npc, state, user_input);
         const PersonalityMode* mode = get_mode_by_name(mode_name);
 
-        // Reinitialize samplers for each turn
-        llama_sampler_free(sampler_chain);
-        sampler_chain = llama_sampler_chain_init(chain_params);
-        llama_sampler_chain_add(sampler_chain, llama_sampler_init_top_k(TOP_K));
-        llama_sampler_chain_add(sampler_chain, llama_sampler_init_top_p(TOP_P, 1));
-        llama_sampler_chain_add(sampler_chain, llama_sampler_init_temp(TEMP));
-        llama_sampler_chain_add(sampler_chain, llama_sampler_init_greedy());
+        // Reuse sampler chain instead of recreating
+        llama_sampler_reset(sampler_chain);
 
         llama_kv_cache_clear(ctx);
 
@@ -339,7 +335,7 @@ int main(int argc, char** argv) {
         }
 
         std::vector<llama_token> assistant_tokens;
-        token_counts.assign(n_vocab, 0);
+        std::fill(token_counts.begin(), token_counts.end(), 0);
         int common_token_streak = 0;
         int min_tokens = std::max(MIN_RESPONSE_TOKENS, mode->min_tokens);
         int max_tokens = std::min(DEFAULT_MAX_OUTPUT_TOKENS, mode->max_tokens);
@@ -354,17 +350,19 @@ int main(int argc, char** argv) {
             // Apply Zipf acceleration (biases, role/mood, etc.)
             zipf.accelerate_logits(logits, i, max_tokens - i);
 
-            // Reset candidates array
+            // Build candidate list and trim to top logits
             for (int token_id = 0; token_id < n_vocab; token_id++) {
-                candidates[token_id] = llama_token_data{token_id, logits[token_id], 0.0f};
+                candidates[token_id] = { token_id, logits[token_id], 0.0f };
             }
             llama_token_data_array candidates_arr = { candidates.data(), (size_t)n_vocab, false };
+            llama_sample_top_k(ctx, &candidates_arr, TOP_CAND, TOP_CAND);
 
-            // Apply repetition penalty using ZipfAccelerator
-            for (int token_id = 0; token_id < n_vocab; ++token_id) {
+            // Apply repetition penalty only on trimmed set
+            for (size_t j = 0; j < candidates_arr.size; ++j) {
+                int token_id = candidates_arr.data[j].id;
                 if (token_counts[token_id] > 0) {
                     float penalty = zipf.get_repetition_penalty(token_id, token_counts[token_id]);
-                    logits[token_id] *= penalty;
+                    candidates_arr.data[j].logit *= penalty;
                 }
             }
 
@@ -440,9 +438,10 @@ int main(int argc, char** argv) {
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         double elapsed_sec = elapsed_ms / 1000.0;
         double tokens_per_sec = (elapsed_sec > 0.0) ? (assistant_tokens.size() / elapsed_sec) : 0.0;
-        std::string gen_stats = "[Gen " + std::to_string(elapsed_ms) + " ms | " 
+        std::string gen_stats = "[Gen " + std::to_string(elapsed_ms) + " ms | "
                                 + std::to_string(tokens_per_sec) + " tok/s]\n";
         log_and_print(gen_stats);
+        llama_perf_context_print(ctx);
 
         // Save conversation
         std::ofstream outfile("lastPrompt.txt", std::ios::app);
