@@ -53,7 +53,7 @@ private:
     static constexpr uint8_t IS_DIALOGUE = 8;
     
 public:
-    // Fast initialization - only compute what we actually use
+    // Fast initialization - only compute what we actually use␊
     void initialize(const llama_vocab* vocab) {
         vocab_size = vocab->n_tokens();
         base_logit_bias.resize(vocab_size, 0.0f);
@@ -146,9 +146,6 @@ public:
 
         // Update conversation state
         conv_state.turn_count++;
-        if (conv_state.recent_lengths.size() >= 5) {
-            conv_state.recent_lengths.pop_front();
-        }
         
         // Adjust complexity based on recent interaction patterns
         update_complexity_factor();
@@ -219,6 +216,20 @@ public:
         } else {
             // Rare tokens get penalized harder for repetition
             return std::pow(base_penalty, count * 1.3f);
+        }
+    }
+
+    // Record a generated sequence for adaptive state updates
+    void record_generation(const std::vector<llama_token>& tokens) {
+        // Track length history for complexity adjustments
+        conv_state.recent_lengths.push_back(tokens.size());
+        if (conv_state.recent_lengths.size() > 5) {
+            conv_state.recent_lengths.pop_front();
+        }
+
+        // Update token usage counts
+        for (llama_token t : tokens) {
+            conv_state.turn_frequencies[t] += 1.0f;
         }
     }
 
